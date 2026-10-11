@@ -1,0 +1,58 @@
+{
+  "name": "dsh-kisssub",
+  "version": "0.1.0",
+  "description": "KissSub (爱恋动漫 kisssub.org / MioBT) 下载插件：搜索、磁链解析、投递到无 GUI 下载器（aria2 / qBittorrent-nox）、首次使用自动建配置并引导设置默认保存目录",
+  "type": "module",
+  "main": "lib/index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ewrfdn/dsh-kisssub.git"
+  },
+  "homepage": "https://github.com/ewrfdn/dsh-kisssub#readme",
+  "bugs": {
+    "url": "https://github.com/ewrfdn/dsh-kisssub/issues"
+  },
+  "exports": {
+    ".": "./lib/index.js",
+    "./kisssub": "./lib/kisssub.js",
+    "./downloader": "./lib/downloader.js",
+    "./config": "./lib/config.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "dsh-kisssub.example.json"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "dsh-plugin",
+    "kisssub",
+    "miobt",
+    "anime",
+    "bittorrent",
+    "aria2",
+    "qbittorrent"
+  ],
+  "scripts": {
+    "test": "node test/config.mjs && node test/bundle.mjs && node test/load.mjs && node test/live.mjs && node test/downloader.mjs",
+    "test:offline": "node test/config.mjs && node test/bundle.mjs",
+    "test:live": "node test/live.mjs && node test/downloader.mjs"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "*",
+    "@deepseek-ai/dsh-tools": "*",
+    "@deepseek-ai/schemastery": "*"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

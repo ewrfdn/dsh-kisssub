@@ -1,0 +1,5 @@
+# dsh-kisssub bundle patch：把插件行插进 profile 的插件名册。
+# 用户可以在自己 profile 的 cordis.patch.yml 里按 id `kisssub` 覆盖这一行（例如改 config）。
+- insert:
+    - id: kisssub
+      name: dsh-kisssub
