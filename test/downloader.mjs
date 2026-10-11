@@ -13,11 +13,16 @@
 
 import { spawn } from 'node:child_process'
 import http from 'node:http'
-import { mkdtempSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { existsSync, mkdtempSync, rmSync, statSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
 
 import { addDownload, aria2Call, probeDownloader, qbAdd, qbVersion } from '../lib/downloader.js'
+
+/** 真实配置文件：测试结束时必须没被碰过。 */
+const REAL_CONFIG = join(homedir(), '.dsh', 'dsh-kisssub.json')
+const realConfigBefore = existsSync(REAL_CONFIG) ? statSync(REAL_CONFIG).mtimeMs : null
+let toolConfigFile = null
 
 let passed = 0
 let failed = 0
@@ -181,6 +186,8 @@ if (ariaInfo) {
   console.log('\n== 完整工具链：agent 工具 → 真实 aria2 ==')
   const { apply } = await import('../lib/index.js')
   const registered = new Map()
+  // 用临时配置文件，避免测试在真实机器上创建/污染 ~/.dsh/dsh-kisssub.json。
+  toolConfigFile = join(mkdtempSync(join(tmpdir(), 'dsh-kisssub-tool-')), 'dsh-kisssub.json')
   const ctx = {
     tools: { register: (definition) => registered.set(definition.name, definition) },
     // 真实宿主里由 cordis 提供；这里给个最小实现，让系统提示段也能被注册到。
@@ -192,6 +199,7 @@ if (ariaInfo) {
     },
   }
   apply(ctx, {
+    configFile: toolConfigFile,
     downloader: 'aria2',
     aria2Rpc: ariaInfo.rpc,
     aria2Secret: ARIA_SECRET,
@@ -366,5 +374,14 @@ try {
 }
 
 stopAria()
+if (toolConfigFile) rmSync(dirname(toolConfigFile), { recursive: true, force: true })
+
+console.log('\n== 隔离性 ==')
+step('测试没有碰过真实配置文件', () => {
+  const after = existsSync(REAL_CONFIG) ? statSync(REAL_CONFIG).mtimeMs : null
+  assert(after === realConfigBefore, `真实配置被改动了: ${REAL_CONFIG}`)
+  return realConfigBefore === null ? '真实配置文件仍不存在' : `${REAL_CONFIG} 未改动`
+})
+
 console.log(`\n结果: ${passed} 通过, ${failed} 失败`)
 process.exit(failed === 0 ? 0 : 1)

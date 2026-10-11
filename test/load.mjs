@@ -15,8 +15,8 @@
  * 需要能解析到 @deepseek-ai/*（在已装好 dsh 的 profile 里跑，或按 README 建 node_modules 软链）。
  */
 
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { validateJsonSchemaValue } from '@deepseek-ai/dsh-tools'
@@ -56,6 +56,12 @@ const EXPECTED = [
 const dir = mkdtempSync(join(tmpdir(), 'dsh-kisssub-load-'))
 const configFile = join(dir, 'dsh-kisssub.json')
 
+/** 真实配置文件：测试结束时必须没被碰过。 */
+const REAL_CONFIG = join(homedir(), '.dsh', 'dsh-kisssub.json')
+const realConfigBefore = existsSync(REAL_CONFIG) ? statSync(REAL_CONFIG).mtimeMs : null
+/** 捕获插件装载日志，用来验证「装载即建配置」这条路径真的走通了。 */
+const logs = []
+
 const registered = new Map()
 /** 捕获系统提示段，用来验证"首次使用要让 agent 去问用户"。 */
 const promptSections = new Map()
@@ -77,6 +83,12 @@ const ctx = {
   inject(deps, callback) {
     if (deps.includes('systemPrompt')) callback(promptCtx)
     return { dispose() {} }
+  },
+  logger(named) {
+    return {
+      info: (message) => logs.push([named, message]),
+      warn: (message) => logs.push([named, `WARN ${message}`]),
+    }
   },
 }
 
@@ -101,6 +113,14 @@ await step('第一次使用自动创建配置文件', () => {
   assert(raw.savePath === '', '新建时 savePath 应为空')
   assert(typeof raw.defaultSavePath === 'string' && raw.defaultSavePath.length > 0, 'defaultSavePath 缺失')
   return configFile
+})
+
+await step('装载时打了一条可诊断的加载日志', () => {
+  const line = logs.map(([, message]) => message).find((message) => message.includes('dsh-kisssub 已加载'))
+  assert(line, `没有加载日志: ${JSON.stringify(logs)}`)
+  assert(line.includes(configFile), `日志里没有配置文件路径: ${line}`)
+  assert(line.includes('尚未与用户确认'), `日志没反映首次使用状态: ${line}`)
+  return line.slice(0, 90)
 })
 
 await step('注册了系统提示段（用于让 agent 主动问用户）', () => {
@@ -241,5 +261,13 @@ await step('kisssub_search 缺少 keyword 会抛错', async () => {
 })
 
 rmSync(dir, { recursive: true, force: true })
+
+console.log('\n== 隔离性 ==')
+await step('测试没有碰过真实配置文件', () => {
+  const after = existsSync(REAL_CONFIG) ? statSync(REAL_CONFIG).mtimeMs : null
+  assert(after === realConfigBefore, `真实配置被改动了: ${REAL_CONFIG}`)
+  return realConfigBefore === null ? '真实配置文件仍不存在' : `${REAL_CONFIG} 未改动`
+})
+
 console.log(`\n结果: ${passed} 通过, ${failed} 失败`)
 process.exit(failed === 0 ? 0 : 1)
